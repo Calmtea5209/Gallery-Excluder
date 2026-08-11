@@ -1,6 +1,6 @@
 {
   "name": "gallery-excluder",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Prevent Android gallery apps from indexing images stored inside an Obsidian vault.",
   "main": "main.js",
   "type": "module",

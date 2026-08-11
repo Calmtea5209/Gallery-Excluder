@@ -10,6 +10,7 @@ import {
   type ManagedPathsStore,
   type RemoveResult
 } from "./nomedia-manager";
+import { disableProtectionAndRemoveManaged } from "./protection-removal";
 import { cloneSettings, coerceSettings } from "./settings-data";
 import { GalleryExcluderSettingTab } from "./settings-tab";
 import { resolveTargetFolders, type TargetResolution } from "./target-resolver";
@@ -81,13 +82,34 @@ export default class GalleryExcluderPlugin
     await this.runProtection("settings-change");
   }
 
-  async removePluginCreatedNomedia(): Promise<void> {
+  async disableProtectionAndRemovePluginCreatedNomedia(): Promise<void> {
     if (!Platform.isAndroidApp) {
+      new Notice(
+        "Gallery Excluder can disable protection and remove .nomedia files only in the Android app."
+      );
       return;
     }
 
-    const result = await this.manager.removeManaged();
-    this.reportRemoveResult(result);
+    try {
+      const result = await disableProtectionAndRemoveManaged({
+        isProtectionEnabled: () => this.settings.enableProtection,
+        setProtectionEnabled: (value) => {
+          this.settings.enableProtection = value;
+        },
+        saveSettings: () => this.saveSettings(),
+        removeManaged: () => this.manager.removeManaged()
+      });
+      this.reportRemoveResult(result);
+    } catch (error) {
+      console.error(
+        "Gallery Excluder could not disable protection and remove its managed files.",
+        error
+      );
+      new Notice(
+        "Gallery Excluder could not disable protection and remove its managed files. Check the developer console for details.",
+        8000
+      );
+    }
   }
 
   private async loadSettings(): Promise<void> {
@@ -113,7 +135,9 @@ export default class GalleryExcluderPlugin
     }
     if (!this.settings.enableProtection) {
       if (origin === "manual") {
-        new Notice("Enable Gallery Excluder protection before applying it.");
+        new Notice(
+          "Enable Gallery Excluder automatic protection before applying it."
+        );
       }
       return;
     }
@@ -163,7 +187,7 @@ export default class GalleryExcluderPlugin
       console.error(`Gallery Excluder: ${issue.path}: ${issue.message}`);
     }
 
-    if (result.created.length > 0 && this.settings.showCreationNotice) {
+    if (result.created.length > 0) {
       const subject =
         result.created.length === 1
           ? "a .nomedia file"
@@ -200,15 +224,17 @@ export default class GalleryExcluderPlugin
 
     if (result.errors.length > 0) {
       new Notice(
-        "Gallery Excluder could not remove one or more managed files. Check the developer console for details.",
+        "Automatic protection is disabled, but Gallery Excluder could not finish removing or updating one or more managed files. Check the developer console for details.",
         8000
       );
     } else if (result.removed.length > 0) {
       new Notice(
-        `Gallery Excluder removed ${result.removed.length} plugin-created .nomedia file${result.removed.length === 1 ? "" : "s"}.`
+        `Automatic protection is disabled. Gallery Excluder removed ${result.removed.length} plugin-created .nomedia file${result.removed.length === 1 ? "" : "s"}.`
       );
     } else {
-      new Notice("No plugin-created .nomedia files were found.");
+      new Notice(
+        "Automatic protection is disabled. No plugin-created .nomedia files were found."
+      );
     }
   }
 }

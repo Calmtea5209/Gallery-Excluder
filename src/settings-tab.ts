@@ -35,11 +35,14 @@ export class GalleryExcluderSettingTab extends PluginSettingTab {
 
     definitions.push(
       {
-        name: "Enable protection",
-        desc: "Create and manage .nomedia files on Android.",
+        name: "Automatic protection",
+        desc: Platform.isAndroidApp
+          ? "Creates and maintains .nomedia files. Turning this off also removes files created by Gallery Excluder."
+          : ".nomedia operations are available only in the Android app.",
         control: {
           type: "toggle",
-          key: "enableProtection"
+          key: "enableProtection",
+          disabled: () => !Platform.isAndroidApp
         }
       },
       {
@@ -77,14 +80,6 @@ export class GalleryExcluderSettingTab extends PluginSettingTab {
       },
       this.customFoldersDefinition(),
       {
-        name: "Show notification when .nomedia is created",
-        desc: "Show one notice after Gallery Excluder creates protection files.",
-        control: {
-          type: "toggle",
-          key: "showCreationNotice"
-        }
-      },
-      {
         name: "Apply protection now",
         desc: Platform.isAndroidApp
           ? "Check the selected locations immediately."
@@ -104,26 +99,6 @@ export class GalleryExcluderSettingTab extends PluginSettingTab {
               })
           );
         }
-      },
-      {
-        name: "Remove plugin-created .nomedia files",
-        desc: "Remove only paths recorded as created by Gallery Excluder. Existing user-created files are never added to that record.",
-        aliases: ["Delete managed .nomedia files"],
-        render: (setting) => {
-          setting.addButton((button) =>
-            button
-              .setButtonText("Remove managed files")
-              .setDestructive()
-              .onClick(async () => {
-                button.setDisabled(true);
-                try {
-                  await this.plugin.removePluginCreatedNomedia();
-                } finally {
-                  button.setDisabled(false);
-                }
-              })
-          );
-        }
       }
     );
 
@@ -136,11 +111,14 @@ export class GalleryExcluderSettingTab extends PluginSettingTab {
         if (typeof value !== "boolean") {
           return;
         }
-        this.plugin.settings.enableProtection = value;
-        await this.plugin.saveSettings();
         if (value) {
-          await this.plugin.applyAfterSettingsChange();
+          this.plugin.settings.enableProtection = true;
+          await this.plugin.saveSettings();
+          await this.plugin.applyProtectionNow();
+        } else {
+          await this.plugin.disableProtectionAndRemovePluginCreatedNomedia();
         }
+        this.update();
         return;
 
       case "protectionMode":
@@ -158,14 +136,6 @@ export class GalleryExcluderSettingTab extends PluginSettingTab {
           return;
         }
         this.plugin.settings.attachmentFallbackFolder = value;
-        await this.plugin.saveSettings();
-        return;
-
-      case "showCreationNotice":
-        if (typeof value !== "boolean") {
-          return;
-        }
-        this.plugin.settings.showCreationNotice = value;
         await this.plugin.saveSettings();
         return;
 

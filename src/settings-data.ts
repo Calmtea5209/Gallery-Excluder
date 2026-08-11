@@ -20,10 +20,6 @@ export function coerceSettings(data: unknown): GalleryExcluderSettings {
       data.attachmentFallbackFolder,
       DEFAULT_SETTINGS.attachmentFallbackFolder
     ),
-    showCreationNotice: booleanValue(
-      data.showCreationNotice,
-      DEFAULT_SETTINGS.showCreationNotice
-    ),
     managedNomediaPaths: stringArray(data.managedNomediaPaths)
   };
 }

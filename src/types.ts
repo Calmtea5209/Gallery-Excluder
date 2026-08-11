@@ -9,7 +9,6 @@ export interface GalleryExcluderSettings {
   protectionMode: ProtectionMode;
   customFolders: string[];
   attachmentFallbackFolder: string;
-  showCreationNotice: boolean;
   managedNomediaPaths: string[];
 }
 
@@ -18,6 +17,5 @@ export const DEFAULT_SETTINGS: GalleryExcluderSettings = {
   protectionMode: ProtectionMode.EntireVault,
   customFolders: [],
   attachmentFallbackFolder: "",
-  showCreationNotice: true,
   managedNomediaPaths: []
 };

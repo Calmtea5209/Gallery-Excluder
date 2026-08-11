@@ -12,8 +12,8 @@ Gallery Excluder creates Android `.nomedia` files in selected vault folders. You
 - Protect the entire vault, the configured attachment folder, or selected custom folders.
 - Apply protection when the vault opens on Android and when a configured folder is created later.
 - Leave any `.nomedia` file that already exists at a target location untouched.
-- Track the paths it creates so they can be removed explicitly.
-- Show an optional notice only when new protection files are created.
+- Track the paths it creates so they can be removed when automatic protection is turned off.
+- Show a notice whenever protection files are created or a removal is attempted.
 
 ## How it works
 
@@ -64,11 +64,9 @@ Protection is enabled by default for the entire vault. On Android, Gallery Exclu
 
 | Setting | What it does |
 | --- | --- |
-| **Enable protection** | Enables or pauses automatic protection. Disabling it does not remove existing `.nomedia` files. |
+| **Automatic protection** | Creates and maintains `.nomedia` files when enabled. Turning it off removes files created by Gallery Excluder. |
 | **Protection mode** | Chooses the folders that Gallery Excluder protects. |
-| **Show notification when `.nomedia` is created** | Shows one notice after the plugin creates one or more new protection files. |
 | **Apply protection now** | Immediately applies the current configuration on Android when protection is enabled. |
-| **Remove plugin-created `.nomedia` files** | Removes `.nomedia` files from paths recorded as created by Gallery Excluder. |
 
 ### Protection modes
 
@@ -95,9 +93,9 @@ Menu names may vary between devices and gallery apps. These instructions are als
 ## Safety and limitations
 
 - If `.nomedia` already exists when Gallery Excluder checks a target, the plugin does not overwrite or track it.
-- The removal button deletes `.nomedia` files at paths recorded as plugin-created. If a different `.nomedia` file later replaces one at the same path, Gallery Excluder cannot distinguish it and will remove it too.
-- Disabling protection or changing modes does not silently remove files from the previous mode. Use the removal button when you want to clean them up.
-- If protection remains enabled, applying it again or restarting Obsidian can recreate required files that were removed.
+- Turning automatic protection off deletes `.nomedia` files at paths recorded as plugin-created. If a different `.nomedia` file later replaces one at the same path, Gallery Excluder cannot distinguish it and will remove it too.
+- Changing protection modes does not remove files from the previous mode. Turn automatic protection off when you want to clean up all tracked files.
+- Restarting Obsidian does not recreate managed files while automatic protection is off. Turn it on when you want the files created again.
 - Some third-party gallery apps may ignore `.nomedia`.
 - A `.nomedia` file may sync to other devices. Windows, macOS, and iOS do not use it for Android media scanning, so it normally has no effect there.
 - Obsidian does not expose a reliable per-file API that lets this plugin exclude `.nomedia` from Obsidian Sync.

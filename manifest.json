@@ -1,7 +1,7 @@
 {
   "id": "gallery-excluder",
   "name": "Gallery Excluder",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "minAppVersion": "1.13.0",
   "description": "Prevent Android gallery apps from indexing images stored inside your vault using .nomedia files.",
   "author": "Calmtea",
