@@ -43,16 +43,10 @@ export default defineConfig(
     }
   },
   {
-    files: ["src/settings-tab.ts"],
-    rules: {
-      "@typescript-eslint/no-deprecated": "off",
-      "obsidianmd/settings-tab/prefer-setting-definitions": "off"
-    }
-  },
-  {
     files: ["tests/**/*.ts"],
     rules: {
-      "@typescript-eslint/unbound-method": "off"
+      "@typescript-eslint/unbound-method": "off",
+      "obsidianmd/no-nodejs-modules": "off"
     }
   }
 );

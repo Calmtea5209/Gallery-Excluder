@@ -3,7 +3,8 @@ import {
   Notice,
   Platform,
   PluginSettingTab,
-  Setting
+  type Setting,
+  type SettingDefinitionItem
 } from "obsidian";
 
 import { normalizeVaultFolderPath } from "./path-policy";
@@ -19,120 +20,181 @@ export class GalleryExcluderSettingTab extends PluginSettingTab {
     super(app, plugin);
   }
 
-  display(): void {
-    const { containerEl } = this;
-    containerEl.empty();
-
+  getSettingDefinitions(): SettingDefinitionItem[] {
+    const definitions: SettingDefinitionItem[] = [];
     const galleryCacheGuidance = getGalleryCacheGuidance(Platform.isAndroidApp);
     if (galleryCacheGuidance !== null) {
-      this.displayGalleryCacheGuidance(containerEl, galleryCacheGuidance);
+      definitions.push(this.galleryCacheDefinition(galleryCacheGuidance));
     }
 
-    new Setting(containerEl)
-      .setName("Enable protection")
-      .setDesc("Create and manage .nomedia files on Android.")
-      .addToggle((toggle) =>
-        toggle
-          .setValue(this.plugin.settings.enableProtection)
-          .onChange(async (value) => {
-            this.plugin.settings.enableProtection = value;
-            await this.plugin.saveSettings();
-            if (value) {
-              await this.plugin.applyAfterSettingsChange();
-            }
-          })
-      );
+    const attachmentResolution = this.plugin.getAttachmentFolderResolution();
+    const attachmentDescription =
+      attachmentResolution.kind === "resolved"
+        ? `Current attachment folder: ${attachmentResolution.path || "Vault root"}`
+        : attachmentResolution.reason;
 
-    new Setting(containerEl)
-      .setName("Protection mode")
-      .setDesc("Choose where Gallery Excluder creates .nomedia files.")
-      .addDropdown((dropdown) =>
-        dropdown
-          .addOption(ProtectionMode.EntireVault, "Entire vault")
-          .addOption(
-            ProtectionMode.AttachmentFolder,
-            "Attachment folder only"
-          )
-          .addOption(ProtectionMode.CustomFolders, "Custom folders")
-          .setValue(this.plugin.settings.protectionMode)
-          .onChange(async (value) => {
-            this.plugin.settings.protectionMode = value as ProtectionMode;
-            await this.plugin.saveSettings();
-            await this.plugin.applyAfterSettingsChange();
-            this.display();
-          })
-      );
-
-    if (this.plugin.settings.protectionMode === ProtectionMode.AttachmentFolder) {
-      this.displayAttachmentFolderSettings(containerEl);
-    }
-
-    if (this.plugin.settings.protectionMode === ProtectionMode.CustomFolders) {
-      this.displayCustomFolderSettings(containerEl);
-    }
-
-    new Setting(containerEl)
-      .setName("Show notification when .nomedia is created")
-      .setDesc("Show one notice after Gallery Excluder creates protection files.")
-      .addToggle((toggle) =>
-        toggle
-          .setValue(this.plugin.settings.showCreationNotice)
-          .onChange(async (value) => {
-            this.plugin.settings.showCreationNotice = value;
-            await this.plugin.saveSettings();
-          })
-      );
-
-    new Setting(containerEl)
-      .setName("Apply protection now")
-      .setDesc(
-        Platform.isAndroidApp
-          ? "Check the selected locations immediately."
-          : ".nomedia operations run only in the Android app."
-      )
-      .addButton((button) =>
-        button.setButtonText("Apply protection now").setCta().onClick(async () => {
-          button.setDisabled(true);
-          try {
-            await this.plugin.applyProtectionNow();
-          } finally {
-            button.setDisabled(false);
+    definitions.push(
+      {
+        name: "Enable protection",
+        desc: "Create and manage .nomedia files on Android.",
+        control: {
+          type: "toggle",
+          key: "enableProtection"
+        }
+      },
+      {
+        name: "Protection mode",
+        desc: "Choose where Gallery Excluder creates .nomedia files.",
+        control: {
+          type: "dropdown",
+          key: "protectionMode",
+          options: {
+            [ProtectionMode.EntireVault]: "Entire vault",
+            [ProtectionMode.AttachmentFolder]: "Attachment folder only",
+            [ProtectionMode.CustomFolders]: "Custom folders"
           }
-        })
-      );
+        }
+      },
+      {
+        name: "Attachment folder",
+        desc: attachmentDescription,
+        visible: () =>
+          this.plugin.settings.protectionMode ===
+          ProtectionMode.AttachmentFolder
+      },
+      {
+        name: "Attachment folder fallback",
+        desc: "Required when the attachment setting is relative to the current note or cannot be read. Enter one vault-relative folder.",
+        visible: () =>
+          this.plugin.settings.protectionMode ===
+            ProtectionMode.AttachmentFolder &&
+          attachmentResolution.kind !== "resolved",
+        control: {
+          type: "text",
+          key: "attachmentFallbackFolder",
+          placeholder: "Attachments"
+        }
+      },
+      this.customFoldersDefinition(),
+      {
+        name: "Show notification when .nomedia is created",
+        desc: "Show one notice after Gallery Excluder creates protection files.",
+        control: {
+          type: "toggle",
+          key: "showCreationNotice"
+        }
+      },
+      {
+        name: "Apply protection now",
+        desc: Platform.isAndroidApp
+          ? "Check the selected locations immediately."
+          : ".nomedia operations run only in the Android app.",
+        render: (setting) => {
+          setting.addButton((button) =>
+            button
+              .setButtonText("Apply protection now")
+              .setCta()
+              .onClick(async () => {
+                button.setDisabled(true);
+                try {
+                  await this.plugin.applyProtectionNow();
+                } finally {
+                  button.setDisabled(false);
+                }
+              })
+          );
+        }
+      },
+      {
+        name: "Remove plugin-created .nomedia files",
+        desc: "Remove only paths recorded as created by Gallery Excluder. Existing user-created files are never added to that record.",
+        aliases: ["Delete managed .nomedia files"],
+        render: (setting) => {
+          setting.addButton((button) =>
+            button
+              .setButtonText("Remove managed files")
+              .setDestructive()
+              .onClick(async () => {
+                button.setDisabled(true);
+                try {
+                  await this.plugin.removePluginCreatedNomedia();
+                } finally {
+                  button.setDisabled(false);
+                }
+              })
+          );
+        }
+      }
+    );
 
-    new Setting(containerEl)
-      .setName("Remove plugin-created .nomedia files")
-      .setDesc(
-        "Remove only paths recorded as created by Gallery Excluder. Existing user-created files are never added to that record."
-      )
-      .addButton((button) =>
-        button
-          .setButtonText("Remove managed files")
-          .setWarning()
-          .onClick(async () => {
-            button.setDisabled(true);
-            try {
-              await this.plugin.removePluginCreatedNomedia();
-            } finally {
-              button.setDisabled(false);
-            }
-          })
-      );
+    return definitions;
   }
 
-  private displayGalleryCacheGuidance(
-    containerEl: HTMLElement,
+  async setControlValue(key: string, value: unknown): Promise<void> {
+    switch (key) {
+      case "enableProtection":
+        if (typeof value !== "boolean") {
+          return;
+        }
+        this.plugin.settings.enableProtection = value;
+        await this.plugin.saveSettings();
+        if (value) {
+          await this.plugin.applyAfterSettingsChange();
+        }
+        return;
+
+      case "protectionMode":
+        if (!Object.values(ProtectionMode).includes(value as ProtectionMode)) {
+          return;
+        }
+        this.plugin.settings.protectionMode = value as ProtectionMode;
+        await this.plugin.saveSettings();
+        await this.plugin.applyAfterSettingsChange();
+        this.update();
+        return;
+
+      case "attachmentFallbackFolder":
+        if (typeof value !== "string") {
+          return;
+        }
+        this.plugin.settings.attachmentFallbackFolder = value;
+        await this.plugin.saveSettings();
+        return;
+
+      case "showCreationNotice":
+        if (typeof value !== "boolean") {
+          return;
+        }
+        this.plugin.settings.showCreationNotice = value;
+        await this.plugin.saveSettings();
+        return;
+
+      default:
+        await super.setControlValue(key, value);
+    }
+  }
+
+  private galleryCacheDefinition(
+    guidance: GalleryCacheGuidance
+  ): SettingDefinitionItem {
+    return {
+      name: guidance.title,
+      desc: guidance.introduction,
+      aliases: ["Gallery cache", "Old images"],
+      render: (setting) => {
+        this.renderGalleryCacheGuidance(setting, guidance);
+      }
+    };
+  }
+
+  private renderGalleryCacheGuidance(
+    setting: Setting,
     guidance: GalleryCacheGuidance
   ): void {
-    const notice = containerEl.createDiv({
-      cls: "gallery-excluder-cache-notice",
-      attr: { role: "note" }
-    });
-    new Setting(notice).setName(guidance.title).setHeading();
-    notice.createEl("p", { text: guidance.introduction });
+    setting.setHeading();
+    setting.settingEl.addClass("gallery-excluder-cache-notice");
 
-    const steps = notice.createEl("ol");
+    const steps = setting.infoEl.createEl("ol");
     for (const [index, step] of guidance.steps.entries()) {
       const item = steps.createEl("li", { text: step });
       if (index === guidance.warningStepIndex) {
@@ -141,81 +203,67 @@ export class GalleryExcluderSettingTab extends PluginSettingTab {
     }
   }
 
-  private displayAttachmentFolderSettings(containerEl: HTMLElement): void {
-    const resolution = this.plugin.getAttachmentFolderResolution();
-    const description =
-      resolution.kind === "resolved"
-        ? `Current attachment folder: ${resolution.path || "Vault root"}`
-        : resolution.reason;
-
-    new Setting(containerEl)
-      .setName("Obsidian attachment folder")
-      .setDesc(description);
-
-    if (resolution.kind !== "resolved") {
-      new Setting(containerEl)
-        .setName("Attachment folder fallback")
-        .setDesc(
-          "Required when the attachment setting is relative to the current note or cannot be read. Enter one vault-relative folder."
-        )
-        .addText((text) =>
-          text
-            .setPlaceholder("Attachments")
-            .setValue(this.plugin.settings.attachmentFallbackFolder)
-            .onChange(async (value) => {
-              this.plugin.settings.attachmentFallbackFolder = value;
-              await this.plugin.saveSettings();
-            })
-        );
-    }
-  }
-
-  private displayCustomFolderSettings(containerEl: HTMLElement): void {
-    new Setting(containerEl).setName("Custom folders").setHeading();
-
-    for (const folder of this.plugin.settings.customFolders) {
-      new Setting(containerEl)
-        .setName(folder)
-        .setDesc("Vault-relative folder")
-        .addExtraButton((button) =>
-          button
-            .setIcon("trash-2")
-            .setTooltip(`Remove ${folder}`)
-            .onClick(async () => {
-              this.plugin.settings.customFolders =
-                this.plugin.settings.customFolders.filter(
-                  (configured) => configured !== folder
-                );
-              await this.plugin.saveSettings();
-              this.display();
-            })
-        );
-    }
-
+  private customFoldersDefinition(): SettingDefinitionItem {
     let pendingFolder = "";
-    new Setting(containerEl)
-      .setName("Add custom folder")
-      .setDesc("Paths must stay inside this vault. Parent traversal is rejected.")
-      .addText((text) =>
-        text.setPlaceholder("Assets/images").onChange((value) => {
-          pendingFolder = value;
-        })
-      )
-      .addButton((button) =>
-        button.setButtonText("Add").onClick(async () => {
-          const validation = normalizeVaultFolderPath(pendingFolder);
-          if (!validation.ok) {
-            new Notice(`Gallery Excluder: ${validation.reason}`);
-            return;
-          }
 
-          if (!this.plugin.settings.customFolders.includes(validation.path)) {
-            this.plugin.settings.customFolders.push(validation.path);
-            await this.plugin.saveSettings();
-            await this.plugin.applyAfterSettingsChange();
+    return {
+      type: "group",
+      heading: "Custom folders",
+      visible: () =>
+        this.plugin.settings.protectionMode === ProtectionMode.CustomFolders,
+      items: [
+        ...this.plugin.settings.customFolders.map((folder) => ({
+          name: folder,
+          desc: "Vault-relative folder",
+          render: (setting: Setting) => {
+            setting.addExtraButton((button) =>
+              button
+                .setIcon("trash-2")
+                .setTooltip(`Remove ${folder}`)
+                .onClick(async () => {
+                  this.plugin.settings.customFolders =
+                    this.plugin.settings.customFolders.filter(
+                      (configured) => configured !== folder
+                    );
+                  await this.plugin.saveSettings();
+                  this.update();
+                })
+            );
           }
-          this.display();
-        })
-      );
+        })),
+        {
+          name: "Add custom folder",
+          desc: "Paths must stay inside this vault. Parent traversal is rejected.",
+          render: (setting) => {
+            setting
+              .addText((text) =>
+                text.setPlaceholder("Assets/images").onChange((value) => {
+                  pendingFolder = value;
+                })
+              )
+              .addButton((button) =>
+                button.setButtonText("Add").onClick(async () => {
+                  const validation = normalizeVaultFolderPath(pendingFolder);
+                  if (!validation.ok) {
+                    new Notice(`Gallery Excluder: ${validation.reason}`);
+                    return;
+                  }
+
+                  if (
+                    !this.plugin.settings.customFolders.includes(
+                      validation.path
+                    )
+                  ) {
+                    this.plugin.settings.customFolders.push(validation.path);
+                    await this.plugin.saveSettings();
+                    await this.plugin.applyAfterSettingsChange();
+                  }
+                  this.update();
+                })
+              );
+          }
+        }
+      ]
+    };
   }
 }
