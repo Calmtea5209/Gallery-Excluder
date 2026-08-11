@@ -1,0 +1,9 @@
+{
+  "id": "gallery-excluder",
+  "name": "Gallery Excluder",
+  "version": "0.1.0",
+  "minAppVersion": "1.7.2",
+  "description": "Prevent Android gallery apps from indexing images stored inside your Obsidian vault using .nomedia files.",
+  "author": "Calmtea",
+  "isDesktopOnly": false
+}

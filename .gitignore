@@ -1,0 +1,20 @@
+# Editors
+.vscode
+.idea
+*.iml
+
+# Dependencies and generated reports
+node_modules
+coverage
+tests/
+
+# Release artifact (attach it to GitHub releases instead)
+main.js
+*.map
+
+# Per-vault plugin data
+data.json
+
+# Operating systems
+.DS_Store
+Thumbs.db
