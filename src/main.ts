@@ -232,9 +232,7 @@ export default class GalleryExcluderPlugin
         `Automatic protection is disabled. Gallery Excluder removed ${result.removed.length} plugin-created .nomedia file${result.removed.length === 1 ? "" : "s"}.`
       );
     } else {
-      new Notice(
-        "Automatic protection is disabled. No plugin-created .nomedia files were found."
-      );
+      new Notice("Automatic protection is disabled.");
     }
   }
 }

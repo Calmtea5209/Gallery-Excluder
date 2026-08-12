@@ -23,10 +23,6 @@ export class GalleryExcluderSettingTab extends PluginSettingTab {
   getSettingDefinitions(): SettingDefinitionItem[] {
     const definitions: SettingDefinitionItem[] = [];
     const galleryCacheGuidance = getGalleryCacheGuidance(Platform.isAndroidApp);
-    if (galleryCacheGuidance !== null) {
-      definitions.push(this.galleryCacheDefinition(galleryCacheGuidance));
-    }
-
     const attachmentResolution = this.plugin.getAttachmentFolderResolution();
     const attachmentDescription =
       attachmentResolution.kind === "resolved"
@@ -35,72 +31,91 @@ export class GalleryExcluderSettingTab extends PluginSettingTab {
 
     definitions.push(
       {
-        name: "Automatic protection",
-        desc: Platform.isAndroidApp
-          ? "Creates and maintains .nomedia files. Turning this off also removes files created by Gallery Excluder."
-          : ".nomedia operations are available only in the Android app.",
-        control: {
-          type: "toggle",
-          key: "enableProtection",
-          disabled: () => !Platform.isAndroidApp
-        }
-      },
-      {
-        name: "Protection mode",
-        desc: "Choose where Gallery Excluder creates .nomedia files.",
-        control: {
-          type: "dropdown",
-          key: "protectionMode",
-          options: {
-            [ProtectionMode.EntireVault]: "Entire vault",
-            [ProtectionMode.AttachmentFolder]: "Attachment folder only",
-            [ProtectionMode.CustomFolders]: "Custom folders"
+        type: "group",
+        heading: "Protection",
+        cls: "gallery-excluder-protection-group",
+        items: [
+          {
+            name: "Automatic protection",
+            desc: Platform.isAndroidApp
+              ? "Creates and maintains .nomedia files. Turning this off also removes files created by Gallery Excluder."
+              : ".nomedia operations are available only in the Android app.",
+            control: {
+              type: "toggle",
+              key: "enableProtection",
+              disabled: () => !Platform.isAndroidApp
+            }
+          },
+          {
+            name: "Protection mode",
+            desc: "Choose which folders stay hidden from Android gallery apps.",
+            control: {
+              type: "dropdown",
+              key: "protectionMode",
+              options: {
+                [ProtectionMode.EntireVault]: "Entire vault",
+                [ProtectionMode.AttachmentFolder]: "Attachment folder only",
+                [ProtectionMode.CustomFolders]: "Custom folders"
+              }
+            }
+          },
+          {
+            name: "Attachment folder",
+            desc: attachmentDescription,
+            visible: () =>
+              this.plugin.settings.protectionMode ===
+              ProtectionMode.AttachmentFolder
+          },
+          {
+            name: "Attachment folder fallback",
+            desc: "Required when the attachment setting is relative to the current note or cannot be read. Enter one vault-relative folder.",
+            visible: () =>
+              this.plugin.settings.protectionMode ===
+                ProtectionMode.AttachmentFolder &&
+              attachmentResolution.kind !== "resolved",
+            control: {
+              type: "text",
+              key: "attachmentFallbackFolder",
+              placeholder: "Attachments"
+            }
           }
-        }
-      },
-      {
-        name: "Attachment folder",
-        desc: attachmentDescription,
-        visible: () =>
-          this.plugin.settings.protectionMode ===
-          ProtectionMode.AttachmentFolder
-      },
-      {
-        name: "Attachment folder fallback",
-        desc: "Required when the attachment setting is relative to the current note or cannot be read. Enter one vault-relative folder.",
-        visible: () =>
-          this.plugin.settings.protectionMode ===
-            ProtectionMode.AttachmentFolder &&
-          attachmentResolution.kind !== "resolved",
-        control: {
-          type: "text",
-          key: "attachmentFallbackFolder",
-          placeholder: "Attachments"
-        }
+        ]
       },
       this.customFoldersDefinition(),
       {
-        name: "Apply protection now",
-        desc: Platform.isAndroidApp
-          ? "Check the selected locations immediately."
-          : ".nomedia operations run only in the Android app.",
-        render: (setting) => {
-          setting.addButton((button) =>
-            button
-              .setButtonText("Apply protection now")
-              .setCta()
-              .onClick(async () => {
-                button.setDisabled(true);
-                try {
-                  await this.plugin.applyProtectionNow();
-                } finally {
-                  button.setDisabled(false);
-                }
-              })
-          );
-        }
+        type: "group",
+        heading: "Manual check",
+        cls: "gallery-excluder-action-group",
+        items: [
+          {
+            name: "Apply protection now",
+            desc: Platform.isAndroidApp
+              ? "Check the selected locations immediately."
+              : ".nomedia operations run only in the Android app.",
+            render: (setting) => {
+              setting.settingEl.addClass("gallery-excluder-apply-row");
+              setting.addButton((button) =>
+                button
+                  .setButtonText("Apply protection now")
+                  .setCta()
+                  .onClick(async () => {
+                    button.setDisabled(true);
+                    try {
+                      await this.plugin.applyProtectionNow();
+                    } finally {
+                      button.setDisabled(false);
+                    }
+                  })
+              );
+            }
+          }
+        ]
       }
     );
+
+    if (galleryCacheGuidance !== null) {
+      definitions.push(this.galleryCacheDefinition(galleryCacheGuidance));
+    }
 
     return definitions;
   }
@@ -161,10 +176,43 @@ export class GalleryExcluderSettingTab extends PluginSettingTab {
     setting: Setting,
     guidance: GalleryCacheGuidance
   ): void {
-    setting.setHeading();
+    // A render callback can run again on the same Setting after update().
+    // Reset the row so the guidance is replaced instead of appended.
+    setting.settingEl.empty();
     setting.settingEl.addClass("gallery-excluder-cache-notice");
 
-    const steps = setting.infoEl.createEl("ol");
+    const details = setting.settingEl.createEl("details", {
+      cls: "gallery-excluder-cache-notice-details"
+    });
+    const summary = details.createEl("summary", {
+      cls: "gallery-excluder-cache-notice-summary"
+    });
+    summary.createSpan({
+      cls: "gallery-excluder-cache-notice-icon",
+      text: "i",
+      attr: { "aria-hidden": "true" }
+    });
+
+    const summaryText = summary.createSpan({
+      cls: "gallery-excluder-cache-notice-summary-text"
+    });
+    summaryText.createSpan({
+      cls: "gallery-excluder-cache-notice-title",
+      text: guidance.title
+    });
+    summaryText.createSpan({
+      cls: "gallery-excluder-cache-notice-introduction",
+      text: guidance.introduction
+    });
+    summary.createSpan({
+      cls: "gallery-excluder-cache-notice-chevron",
+      attr: { "aria-hidden": "true" }
+    });
+
+    const body = details.createDiv({
+      cls: "gallery-excluder-cache-notice-body"
+    });
+    const steps = body.createEl("ol");
     for (const [index, step] of guidance.steps.entries()) {
       const item = steps.createEl("li", { text: step });
       if (index === guidance.warningStepIndex) {
@@ -179,6 +227,7 @@ export class GalleryExcluderSettingTab extends PluginSettingTab {
     return {
       type: "group",
       heading: "Custom folders",
+      cls: "gallery-excluder-custom-folders-group",
       visible: () =>
         this.plugin.settings.protectionMode === ProtectionMode.CustomFolders,
       items: [
