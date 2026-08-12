@@ -88,7 +88,7 @@ Creating `.nomedia` stops compatible media scanners from indexing the protected 
 4. Do not tap **Clear data**; that can reset the gallery app's settings.
 5. Restart the phone, then open the gallery app again.
 
-Menu names may vary between devices and gallery apps. These instructions are also shown at the top of the plugin settings page on Android.
+Menu names may vary between devices and gallery apps. These instructions are also available in a collapsible help card at the bottom of the plugin settings page on Android.
 
 ## Safety and limitations
 
